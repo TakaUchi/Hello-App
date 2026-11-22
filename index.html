@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>移動ログマップ</title>
+  <title>写真サムネイルマップ</title>
 
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="移動ログマップ" />
+  <meta name="apple-mobile-web-app-title" content="写真マップ" />
   <link rel="manifest" href="manifest.json" />
 
   <link
@@ -46,7 +46,7 @@
       gap: 8px;
       align-items: center;
     }
-    button {
+    button, .file-btn {
       padding: 8px 12px;
       font-size: 0.85rem;
       font-weight: 600;
@@ -54,146 +54,100 @@
       border-radius: 10px;
       cursor: pointer;
       white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    button:active {
-      opacity: 0.75;
-    }
-    #toggleBtn.start {
+    .file-btn {
       background-color: #007aff;
-      color: #ffffff;
-    }
-    #toggleBtn.stop {
-      background-color: #ef4444;
       color: #ffffff;
     }
     .secondary-btn {
       background-color: #e5e7eb;
       color: #374151;
     }
-    #infoBar {
-      padding: 8px 14px;
-      background: #ffffff;
-      border-bottom: 1px solid #e5e7eb;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.85rem;
-      font-weight: 600;
+    input[type="file"] {
+      display: none;
     }
     #map {
       flex: 1;
-      min-height: 220px;
       width: 100%;
     }
-    #historyPanel {
-      max-height: 34dvh;
-      overflow-y: auto;
-      background: #ffffff;
-      border-top: 1px solid #e5e7eb;
-      padding: 10px 14px;
+    /* 地図上のサムネイルピン */
+    .photo-pin {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      border: 3px solid #ffffff;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+      background: #fff;
+      position: relative;
     }
-    .history-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: #374151;
+    .photo-pin img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
-    .log-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+    .popup-card {
+      text-align: center;
+      max-width: 220px;
     }
-    .log-item {
-      padding: 8px 10px;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      background: #f9fafb;
-      cursor: pointer;
+    .popup-card img {
+      width: 200px;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      display: block;
     }
-    .log-item.active {
-      border-color: #007aff;
-      background: #eff6ff;
-    }
-    .log-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
-    }
-    .log-title {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #111827;
-    }
-    .log-sub {
+    .popup-time {
       font-size: 0.78rem;
       color: #6b7280;
+      margin-bottom: 4px;
     }
-    .item-actions {
-      display: flex;
-      gap: 6px;
-      flex-shrink: 0;
+    .popup-note {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      word-break: break-word;
     }
-    .csv-btn {
-      padding: 5px 8px;
-      font-size: 0.75rem;
-      background: #dcfce7;
-      color: #15803d;
-      border-radius: 8px;
-    }
-    .delete-btn {
-      padding: 5px 8px;
+    .popup-del {
+      padding: 4px 10px;
       font-size: 0.75rem;
       background: #fee2e2;
       color: #b91c1c;
-      border-radius: 8px;
+      border-radius: 6px;
     }
     #status {
-      padding: 6px 14px;
-      font-size: 0.8rem;
-      background: #f3f4f6;
-      color: #4b5563;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      background: #ffffff;
       border-top: 1px solid #e5e7eb;
+      color: #4b5563;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>移動ログマップ</h1>
+    <h1>写真マップ</h1>
     <div class="controls">
-      <button id="toggleBtn" class="start" onclick="toggleTracking()">記録開始</button>
-      <button class="secondary-btn" onclick="fitDisplayedRoute()">全体表示</button>
+      <label class="file-btn">
+        ＋ 写真を残す
+        <input type="file" id="photoInput" accept="image/*" />
+      </label>
+      <button class="secondary-btn" onclick="moveToCurrentLocation()">現在地</button>
     </div>
   </header>
 
-  <div id="infoBar">
-    <span id="distanceText">距離: 0 m</span>
-    <span id="pointsText">ポイント: 0 点</span>
-  </div>
-
   <div id="map"></div>
-
-  <div id="historyPanel">
-    <div class="history-header">
-      <span>保存されたログ履歴</span>
-      <span id="logCountText">0件</span>
-    </div>
-    <div id="logList" class="log-list"></div>
-  </div>
-
-  <div id="status">待機中（「記録開始」を押すと移動ログを記録します）</div>
+  <div id="status">「＋ 写真を残す」で撮影または写真を選ぶと、地図にサムネイルが貼られます</div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    const STORAGE_KEY = "move_logs_history_v1";
+    const STORAGE_KEY = "photo_map_pins_v1";
 
     const map = L.map("map").setView([35.6812, 139.7671], 15);
 
@@ -202,428 +156,209 @@
       maxZoom: 19
     }).addTo(map);
 
-    let logs = [];
-    let selectedLogId = null;
+    // [{ id, lat, lng, thumbDataUrl, fullDataUrl, note, createdAt }]
+    let photoPins = [];
+    const markerLayer = L.layerGroup().addTo(map);
 
-    let isTracking = false;
-    let watchId = null;
-    let currentPoints = [];
-    let currentStartedAt = null;
-
-    let userMarker = null;
-    let accuracyCircle = null;
-    let startMarker = null;
-    let endMarker = null;
-
-    const routeLine = L.polyline([], {
-      color: "#007aff",
-      weight: 5,
-      opacity: 0.9
-    }).addTo(map);
-
-    function calcDistanceMeters(lat1, lng1, lat2, lng2) {
-      const R = 6371000;
-      const toRad = (deg) => (deg * Math.PI) / 180;
-      const dLat = toRad(lat2 - lat1);
-      const dLng = toRad(lng2 - lng1);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(lat1)) *
-          Math.cos(toRad(lat2)) *
-          Math.sin(dLng / 2) *
-          Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
-
-    function getTotalDistance(pts) {
-      let total = 0;
-      for (let i = 1; i < pts.length; i++) {
-        total += calcDistanceMeters(
-          pts[i - 1].lat,
-          pts[i - 1].lng,
-          pts[i].lat,
-          pts[i].lng
-        );
+    function savePins() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(photoPins));
+      } catch (e) {
+        alert("保存容量がいっぱいに近づいています。不要な写真ピンを削除してください。");
       }
-      return total;
     }
 
-    function formatDistance(meters) {
-      if (meters >= 1000) {
-        return `${(meters / 1000).toFixed(2)} km`;
-      }
-      return `${Math.round(meters)} m`;
-    }
-
-    function formatDateTime(isoStr) {
-      const d = new Date(isoStr);
-      if (isNaN(d.getTime())) return "";
-      const month = d.getMonth() + 1;
-      const day = d.getDate();
-      const hh = String(d.getHours()).padStart(2, "0");
-      const mm = String(d.getMinutes()).padStart(2, "0");
-      return `${month}/${day} ${hh}:${mm}`;
-    }
-
-    function formatLocalTimestamp(isoStr) {
-      const d = new Date(isoStr);
-      if (isNaN(d.getTime())) return isoStr;
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      const hh = String(d.getHours()).padStart(2, "0");
-      const min = String(d.getMinutes()).padStart(2, "0");
-      const ss = String(d.getSeconds()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-    }
-
-    function saveLogs() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-    }
-
-    function loadLogs() {
+    function loadPins() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            logs = parsed;
+            photoPins = parsed;
           }
         }
       } catch (e) {
-        logs = [];
+        photoPins = [];
       }
     }
 
-    // ログをCSV形式でダウンロード
-    function downloadLogCsv(logId) {
-      const target = logs.find((l) => l.id === logId);
-      if (!target || !target.points || target.points.length === 0) return;
+    // 画像をリサイズしてデータURL化（容量節約＆高速表示のため）
+    function resizeImage(file, maxSize, quality) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            let width = img.width;
+            let height = img.height;
 
-      const rows = [
-        ["No", "日時", "緯度", "経度", "区間距離(m)", "累計距離(m)"]
-      ];
+            if (width > height) {
+              if (width > maxSize) {
+                height = Math.round((height * maxSize) / width);
+                width = maxSize;
+              }
+            } else {
+              if (height > maxSize) {
+                width = Math.round((width * maxSize) / height);
+                height = maxSize;
+              }
+            }
 
-      let cumulative = 0;
-      target.points.forEach((pt, idx) => {
-        let seg = 0;
-        if (idx > 0) {
-          seg = calcDistanceMeters(
-            target.points[idx - 1].lat,
-            target.points[idx - 1].lng,
-            pt.lat,
-            pt.lng
-          );
-          cumulative += seg;
-        }
-        rows.push([
-          idx + 1,
-          formatLocalTimestamp(pt.time),
-          pt.lat.toFixed(6),
-          pt.lng.toFixed(6),
-          seg.toFixed(1),
-          cumulative.toFixed(1)
-        ]);
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
-
-      const csvBody = rows.map((r) => r.join(",")).join("\r\n");
-      // UTF-8 BOM付きにしてPCの表計算ソフトでも日本語が文字化けしないようにする
-      const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
-      const blob = new Blob([bom, csvBody], { type: "text/csv;charset=utf-8;" });
-
-      const d = target.startedAt ? new Date(target.startedAt) : new Date();
-      const fileDate = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
-      const fileName = `move_log_${fileDate}.csv`;
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      document.getElementById("status").textContent = `${fileName} を保存しました`;
     }
 
-    function clearEndpointMarkers() {
-      if (startMarker) {
-        map.removeLayer(startMarker);
-        startMarker = null;
-      }
-      if (endMarker) {
-        map.removeLayer(endMarker);
-        endMarker = null;
-      }
+    function formatTime(isoStr) {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return "";
+      return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     }
 
-    function renderRouteOnMap(pts, showEndpoints = true) {
-      const latLngs = pts.map((p) => [p.lat, p.lng]);
-      routeLine.setLatLngs(latLngs);
+    function renderAllPins() {
+      markerLayer.clearLayers();
 
-      clearEndpointMarkers();
+      photoPins.forEach((pin) => {
+        const icon = L.divIcon({
+          className: "",
+          html: `<div class="photo-pin"><img src="${pin.thumbDataUrl}" alt="photo" /></div>`,
+          iconSize: [56, 56],
+          iconAnchor: [28, 28],
+          popupAnchor: [0, -28]
+        });
 
-      if (showEndpoints && pts.length > 0) {
-        startMarker = L.circleMarker([pts[0].lat, pts[0].lng], {
-          radius: 7,
-          color: "#16a34a",
-          fillColor: "#22c55e",
-          fillOpacity: 1,
-          weight: 2
-        })
-          .addTo(map)
-          .bindPopup("開始地点");
+        const marker = L.marker([pin.lat, pin.lng], { icon }).addTo(markerLayer);
 
-        const last = pts[pts.length - 1];
-        endMarker = L.circleMarker([last.lat, last.lng], {
-          radius: 7,
-          color: "#dc2626",
-          fillColor: "#ef4444",
-          fillOpacity: 1,
-          weight: 2
-        })
-          .addTo(map)
-          .bindPopup("終了地点");
-      }
-
-      document.getElementById("distanceText").textContent =
-        `距離: ${formatDistance(getTotalDistance(pts))}`;
-      document.getElementById("pointsText").textContent =
-        `ポイント: ${pts.length} 点`;
-    }
-
-    function fitDisplayedRoute() {
-      const latLngs = routeLine.getLatLngs();
-      if (latLngs && latLngs.length > 0) {
-        map.fitBounds(L.latLngBounds(latLngs), { padding: [30, 30] });
-      }
-    }
-
-    function renderHistoryList() {
-      const listEl = document.getElementById("logList");
-      const countEl = document.getElementById("logCountText");
-      countEl.textContent = `${logs.length}件`;
-
-      if (logs.length === 0) {
-        listEl.innerHTML = `<div class="log-sub">まだ保存されたログはありません。「記録開始」から試してみてください。</div>`;
-        return;
-      }
-
-      listEl.innerHTML = "";
-      logs.forEach((log, index) => {
-        const item = document.createElement("div");
-        item.className = "log-item" + (!isTracking && log.id === selectedLogId ? " active" : "");
-        item.onclick = () => selectLog(log.id);
-
-        const distText = formatDistance(getTotalDistance(log.points));
-        const labelText = log.startedAt ? formatDateTime(log.startedAt) : `ログ #${logs.length - index}`;
-
-        const meta = document.createElement("div");
-        meta.className = "log-meta";
-        meta.innerHTML = `
-          <div class="log-title">${labelText} の移動ログ</div>
-          <div class="log-sub">距離: ${distText} ／ ポイント: ${log.points.length}点</div>
+        const popupDiv = document.createElement("div");
+        popupDiv.className = "popup-card";
+        popupDiv.innerHTML = `
+          <img src="${pin.fullDataUrl}" alt="photo" />
+          <div class="popup-time">${formatTime(pin.createdAt)}</div>
+          <div class="popup-note">${pin.note ? escapeHtml(pin.note) : "メモなし"}</div>
         `;
 
-        const actions = document.createElement("div");
-        actions.className = "item-actions";
-
-        const csvBtn = document.createElement("button");
-        csvBtn.className = "csv-btn";
-        csvBtn.textContent = "CSV";
-        csvBtn.onclick = (e) => {
-          e.stopPropagation();
-          downloadLogCsv(log.id);
-        };
-
         const delBtn = document.createElement("button");
-        delBtn.className = "delete-btn";
-        delBtn.textContent = "削除";
-        delBtn.onclick = (e) => {
-          e.stopPropagation();
-          deleteLog(log.id);
-        };
+        delBtn.className = "popup-del";
+        delBtn.textContent = "この写真を削除";
+        delBtn.onclick = () => deletePin(pin.id);
 
-        actions.appendChild(csvBtn);
-        actions.appendChild(delBtn);
-
-        item.appendChild(meta);
-        item.appendChild(actions);
-        listEl.appendChild(item);
+        popupDiv.appendChild(delBtn);
+        marker.bindPopup(popupDiv);
       });
     }
 
-    function selectLog(logId, shouldFit = true) {
-      if (isTracking) {
-        document.getElementById("status").textContent =
-          "記録中は現在のルートを表示しています。履歴を見るには先に「記録停止」を押してください。";
-        return;
-      }
-      const target = logs.find((l) => l.id === logId);
-      if (!target) return;
-
-      selectedLogId = target.id;
-      renderRouteOnMap(target.points, true);
-      renderHistoryList();
-      if (shouldFit && target.points.length > 0) {
-        fitDisplayedRoute();
-      }
-      document.getElementById("status").textContent =
-        `${formatDateTime(target.startedAt)} のログを地図に表示中`;
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
 
-    function deleteLog(logId) {
-      if (!confirm("この移動ログを削除しますか？")) return;
-      logs = logs.filter((l) => l.id !== logId);
-      saveLogs();
+    function deletePin(id) {
+      if (!confirm("この写真ピンを削除しますか？")) return;
+      photoPins = photoPins.filter((p) => p.id !== id);
+      savePins();
+      renderAllPins();
+      document.getElementById("status").textContent = "写真ピンを削除しました";
+    }
 
-      if (selectedLogId === logId) {
-        selectedLogId = logs.length > 0 ? logs[0].id : null;
-        if (selectedLogId) {
-          selectLog(selectedLogId, true);
-        } else {
-          renderRouteOnMap([], false);
+    function getCurrentPosOnce() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("Geolocation unavailable"));
+          return;
         }
-      }
-      renderHistoryList();
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          (err) => reject(err),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+        );
+      });
     }
 
-    function updateUserMarker(lat, lng, acc, centerMap) {
-      if (centerMap) {
-        map.setView([lat, lng], Math.max(map.getZoom(), 16));
-      }
-      if (userMarker) {
-        userMarker.setLatLng([lat, lng]);
-      } else {
-        userMarker = L.marker([lat, lng]).addTo(map).bindPopup("現在地");
-      }
-      if (accuracyCircle) {
-        accuracyCircle.setLatLng([lat, lng]).setRadius(acc);
-      } else {
-        accuracyCircle = L.circle([lat, lng], {
-          radius: acc,
-          color: "#007aff",
-          fillColor: "#007aff",
-          fillOpacity: 0.15,
-          weight: 1
-        }).addTo(map);
-      }
-    }
-
-    function toggleTracking() {
-      if (isTracking) {
-        stopTracking();
-      } else {
-        startTracking();
-      }
-    }
-
-    function startTracking() {
+    function moveToCurrentLocation() {
       const statusEl = document.getElementById("status");
-      const btn = document.getElementById("toggleBtn");
-
-      if (!navigator.geolocation) {
-        statusEl.textContent = "このブラウザは位置情報に対応していません。";
-        return;
-      }
-
-      isTracking = true;
-      currentPoints = [];
-      currentStartedAt = new Date().toISOString();
-      selectedLogId = null;
-
-      btn.textContent = "記録停止";
-      btn.className = "stop";
-      renderRouteOnMap([], false);
-      renderHistoryList();
-      statusEl.textContent = "移動ログを記録中...";
-
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const acc = Math.round(pos.coords.accuracy);
-
-          const last = currentPoints[currentPoints.length - 1];
-          const movedMeters = last
-            ? calcDistanceMeters(last.lat, last.lng, lat, lng)
-            : Infinity;
-
-          if (acc <= 100 && (currentPoints.length === 0 || movedMeters >= 3)) {
-            currentPoints.push({
-              lat,
-              lng,
-              time: new Date().toISOString()
-            });
-            renderRouteOnMap(currentPoints, false);
-          }
-
-          updateUserMarker(lat, lng, acc, true);
-          statusEl.textContent = `記録中（誤差 約${acc}m）`;
-        },
-        (err) => {
-          statusEl.textContent = "位置情報の取得中にエラーが発生しました。";
-          stopTracking();
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 2000
-        }
-      );
-    }
-
-    function stopTracking() {
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-      }
-      isTracking = false;
-      const btn = document.getElementById("toggleBtn");
-      btn.textContent = "記録開始";
-      btn.className = "start";
-
-      if (currentPoints.length > 0) {
-        const newLog = {
-          id: String(Date.now()),
-          startedAt: currentStartedAt,
-          endedAt: new Date().toISOString(),
-          points: currentPoints
-        };
-        logs.unshift(newLog);
-        saveLogs();
-        selectedLogId = newLog.id;
-        renderHistoryList();
-        renderRouteOnMap(newLog.points, true);
-        fitDisplayedRoute();
-        document.getElementById("status").textContent =
-          "記録を保存し、地図上にルートを表示しました！";
-      } else {
-        renderHistoryList();
-        document.getElementById("status").textContent =
-          "位置ポイントがなかったため保存はスキップしました。";
-      }
-    }
-
-    loadLogs();
-    renderHistoryList();
-
-    if (logs.length > 0) {
-      selectLog(logs[0].id, true);
-    } else if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const acc = Math.round(pos.coords.accuracy);
+      statusEl.textContent = "現在地を取得中...";
+      getCurrentPosOnce()
+        .then(({ lat, lng }) => {
           map.setView([lat, lng], 16);
-          updateUserMarker(lat, lng, acc, false);
-        },
-        () => {},
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
+          statusEl.textContent = "現在地に移動しました";
+        })
+        .catch(() => {
+          statusEl.textContent = "現在地を取得できませんでした";
+        });
+    }
+
+    document.getElementById("photoInput").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const statusEl = document.getElementById("status");
+      statusEl.textContent = "写真を処理して位置を取得中...";
+
+      try {
+        // サムネイル(140px)と拡大表示用(640px)を生成
+        const [thumbDataUrl, fullDataUrl] = await Promise.all([
+          resizeImage(file, 140, 0.75),
+          resizeImage(file, 640, 0.8)
+        ]);
+
+        let lat, lng;
+        try {
+          const pos = await getCurrentPosOnce();
+          lat = pos.lat;
+          lng = pos.lng;
+        } catch (geoErr) {
+          // 位置情報が取れない場合は今見ている地図の中心に置く
+          const center = map.getCenter();
+          lat = center.lat;
+          lng = center.lng;
+        }
+
+        const note = prompt("ひとことメモ（空欄でもOK）", "") || "";
+
+        const newPin = {
+          id: String(Date.now()),
+          lat,
+          lng,
+          thumbDataUrl,
+          fullDataUrl,
+          note,
+          createdAt: new Date().toISOString()
+        };
+
+        photoPins.push(newPin);
+        savePins();
+        renderAllPins();
+        map.setView([lat, lng], 16);
+        statusEl.textContent = `写真を追加しました（合計 ${photoPins.length}枚）`;
+      } catch (err) {
+        statusEl.textContent = "写真の読み込みに失敗しました";
+      } finally {
+        e.target.value = "";
+      }
+    });
+
+    // 初期起動
+    loadPins();
+    renderAllPins();
+
+    if (photoPins.length > 0) {
+      const last = photoPins[photoPins.length - 1];
+      map.setView([last.lat, last.lng], 15);
+    } else {
+      moveToCurrentLocation();
     }
   </script>
 </body>
