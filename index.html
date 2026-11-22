@@ -137,7 +137,8 @@
   <div id="status">「写真を選ぶ」から写真を選ぶと、位置情報（GPS）がある写真だけ撮影場所に表示します</div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js"></script>
+  <!-- HEIC / HEIF 対応の full 版を読み込む -->
+  <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
 
   <script>
     const STORAGE_KEY = "exif_photo_map_v1";
@@ -149,7 +150,6 @@
       maxZoom: 19
     }).addTo(map);
 
-    // [{ id, lat, lng, hasGps, thumbDataUrl, fullDataUrl, takenAt }]
     let photos = [];
     const markerLayer = L.layerGroup().addTo(map);
 
@@ -218,6 +218,7 @@
 
     async function extractGpsAndDate(file) {
       try {
+        // full版でHEIC/JPEGどちらからもGPSと日時を抽出
         const gps = await exifr.gps(file);
         const meta = await exifr.parse(file, ["DateTimeOriginal", "CreateDate"]);
         const rawDate = meta?.DateTimeOriginal || meta?.CreateDate || null;
@@ -225,7 +226,7 @@
         if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
           takenAt = `${rawDate.getMonth() + 1}/${rawDate.getDate()} ${String(rawDate.getHours()).padStart(2, "0")}:${String(rawDate.getMinutes()).padStart(2, "0")}`;
         }
-        if (gps && typeof gps.latitude === "number" && typeof gps.longitude === "number") {
+        if (gps && typeof gps.latitude === "number" && typeof gps.longitude === "number" && !isNaN(gps.latitude) && !isNaN(gps.longitude)) {
           return {
             lat: gps.latitude,
             lng: gps.longitude,
@@ -297,11 +298,12 @@
 
       let addedGpsCount = 0;
       let skippedNoGpsCount = 0;
+      let lastFileType = "";
 
       for (const file of files) {
+        lastFileType = file.type || file.name.split(".").pop() || "unknown";
         const info = await extractGpsAndDate(file);
 
-        // 位置情報がない写真は地図に表示せずスキップ
         if (!info.hasGps) {
           skippedNoGpsCount++;
           continue;
@@ -342,7 +344,7 @@
 
       const totalVisible = getGpsPhotos().length;
       statusEl.textContent =
-        `追加 ${addedGpsCount}枚 ／ 位置情報なし（非表示） ${skippedNoGpsCount}枚（地図上 ${totalVisible}枚）`;
+        `追加 ${addedGpsCount}枚 ／ 位置情報なし ${skippedNoGpsCount}枚（形式: ${lastFileType} ／ 合計 ${totalVisible}枚）`;
 
       e.target.value = "";
     });
