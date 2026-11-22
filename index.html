@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>現在地マップ</title>
+  <title>移動ログマップ</title>
 
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="現在地マップ" />
+  <meta name="apple-mobile-web-app-title" content="移動ログマップ" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- Leaflet（地図ライブラリ）のCSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -30,7 +29,7 @@
       color: #1f2937;
     }
     header {
-      padding: 12px 16px;
+      padding: 10px 14px;
       background: #ffffff;
       border-bottom: 1px solid #e5e7eb;
       display: flex;
@@ -42,118 +41,590 @@
       font-size: 1rem;
       margin: 0;
     }
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
     button {
-      padding: 8px 14px;
-      font-size: 0.9rem;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
       border: none;
       border-radius: 10px;
-      background-color: #007aff;
-      color: white;
       cursor: pointer;
       white-space: nowrap;
     }
     button:active {
-      opacity: 0.7;
+      opacity: 0.75;
+    }
+    #toggleBtn.start {
+      background-color: #007aff;
+      color: #ffffff;
+    }
+    #toggleBtn.stop {
+      background-color: #ef4444;
+      color: #ffffff;
+    }
+    .secondary-btn {
+      background-color: #e5e7eb;
+      color: #374151;
+    }
+    #infoBar {
+      padding: 8px 14px;
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      font-weight: 600;
     }
     #map {
       flex: 1;
+      min-height: 220px;
       width: 100%;
     }
-    #status {
-      padding: 8px 16px;
-      font-size: 0.85rem;
+    #historyPanel {
+      max-height: 34dvh;
+      overflow-y: auto;
       background: #ffffff;
       border-top: 1px solid #e5e7eb;
+      padding: 10px 14px;
+    }
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #374151;
+    }
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .log-item {
+      padding: 8px 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: #f9fafb;
+      cursor: pointer;
+    }
+    .log-item.active {
+      border-color: #007aff;
+      background: #eff6ff;
+    }
+    .log-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .log-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #111827;
+    }
+    .log-sub {
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+    .item-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .csv-btn {
+      padding: 5px 8px;
+      font-size: 0.75rem;
+      background: #dcfce7;
+      color: #15803d;
+      border-radius: 8px;
+    }
+    .delete-btn {
+      padding: 5px 8px;
+      font-size: 0.75rem;
+      background: #fee2e2;
+      color: #b91c1c;
+      border-radius: 8px;
+    }
+    #status {
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      background: #f3f4f6;
       color: #4b5563;
+      border-top: 1px solid #e5e7eb;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>現在地マップ</h1>
-    <button onclick="locateMe()">現在地を更新</button>
+    <h1>移動ログマップ</h1>
+    <div class="controls">
+      <button id="toggleBtn" class="start" onclick="toggleTracking()">記録開始</button>
+      <button class="secondary-btn" onclick="fitDisplayedRoute()">全体表示</button>
+    </div>
   </header>
 
-  <div id="map"></div>
-  <div id="status">現在地を取得しています...</div>
+  <div id="infoBar">
+    <span id="distanceText">距離: 0 m</span>
+    <span id="pointsText">ポイント: 0 点</span>
+  </div>
 
-  <!-- Leaflet（地図ライブラリ）のJS -->
+  <div id="map"></div>
+
+  <div id="historyPanel">
+    <div class="history-header">
+      <span>保存されたログ履歴</span>
+      <span id="logCountText">0件</span>
+    </div>
+    <div id="logList" class="log-list"></div>
+  </div>
+
+  <div id="status">待機中（「記録開始」を押すと移動ログを記録します）</div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // 初期表示の地図（仮で東京駅付近を中心にしておく）
-    const map = L.map("map").setView([35.6812, 139.7671], 14);
+    const STORAGE_KEY = "move_logs_history_v1";
 
-    // 地図タイル（OpenStreetMap）を読み込む
+    const map = L.map("map").setView([35.6812, 139.7671], 15);
+
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap contributors",
       maxZoom: 19
     }).addTo(map);
 
+    let logs = [];
+    let selectedLogId = null;
+
+    let isTracking = false;
+    let watchId = null;
+    let currentPoints = [];
+    let currentStartedAt = null;
+
     let userMarker = null;
     let accuracyCircle = null;
+    let startMarker = null;
+    let endMarker = null;
 
-    function locateMe() {
+    const routeLine = L.polyline([], {
+      color: "#007aff",
+      weight: 5,
+      opacity: 0.9
+    }).addTo(map);
+
+    function calcDistanceMeters(lat1, lng1, lat2, lng2) {
+      const R = 6371000;
+      const toRad = (deg) => (deg * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2)) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function getTotalDistance(pts) {
+      let total = 0;
+      for (let i = 1; i < pts.length; i++) {
+        total += calcDistanceMeters(
+          pts[i - 1].lat,
+          pts[i - 1].lng,
+          pts[i].lat,
+          pts[i].lng
+        );
+      }
+      return total;
+    }
+
+    function formatDistance(meters) {
+      if (meters >= 1000) {
+        return `${(meters / 1000).toFixed(2)} km`;
+      }
+      return `${Math.round(meters)} m`;
+    }
+
+    function formatDateTime(isoStr) {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return "";
+      const month = d.getMonth() + 1;
+      const day = d.getDate();
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return `${month}/${day} ${hh}:${mm}`;
+    }
+
+    function formatLocalTimestamp(isoStr) {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return isoStr;
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const hh = String(d.getHours()).padStart(2, "0");
+      const min = String(d.getMinutes()).padStart(2, "0");
+      const ss = String(d.getSeconds()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+    }
+
+    function saveLogs() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+    }
+
+    function loadLogs() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            logs = parsed;
+          }
+        }
+      } catch (e) {
+        logs = [];
+      }
+    }
+
+    // ログをCSV形式でダウンロード
+    function downloadLogCsv(logId) {
+      const target = logs.find((l) => l.id === logId);
+      if (!target || !target.points || target.points.length === 0) return;
+
+      const rows = [
+        ["No", "日時", "緯度", "経度", "区間距離(m)", "累計距離(m)"]
+      ];
+
+      let cumulative = 0;
+      target.points.forEach((pt, idx) => {
+        let seg = 0;
+        if (idx > 0) {
+          seg = calcDistanceMeters(
+            target.points[idx - 1].lat,
+            target.points[idx - 1].lng,
+            pt.lat,
+            pt.lng
+          );
+          cumulative += seg;
+        }
+        rows.push([
+          idx + 1,
+          formatLocalTimestamp(pt.time),
+          pt.lat.toFixed(6),
+          pt.lng.toFixed(6),
+          seg.toFixed(1),
+          cumulative.toFixed(1)
+        ]);
+      });
+
+      const csvBody = rows.map((r) => r.join(",")).join("\r\n");
+      // UTF-8 BOM付きにしてPCの表計算ソフトでも日本語が文字化けしないようにする
+      const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
+      const blob = new Blob([bom, csvBody], { type: "text/csv;charset=utf-8;" });
+
+      const d = target.startedAt ? new Date(target.startedAt) : new Date();
+      const fileDate = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
+      const fileName = `move_log_${fileDate}.csv`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      document.getElementById("status").textContent = `${fileName} を保存しました`;
+    }
+
+    function clearEndpointMarkers() {
+      if (startMarker) {
+        map.removeLayer(startMarker);
+        startMarker = null;
+      }
+      if (endMarker) {
+        map.removeLayer(endMarker);
+        endMarker = null;
+      }
+    }
+
+    function renderRouteOnMap(pts, showEndpoints = true) {
+      const latLngs = pts.map((p) => [p.lat, p.lng]);
+      routeLine.setLatLngs(latLngs);
+
+      clearEndpointMarkers();
+
+      if (showEndpoints && pts.length > 0) {
+        startMarker = L.circleMarker([pts[0].lat, pts[0].lng], {
+          radius: 7,
+          color: "#16a34a",
+          fillColor: "#22c55e",
+          fillOpacity: 1,
+          weight: 2
+        })
+          .addTo(map)
+          .bindPopup("開始地点");
+
+        const last = pts[pts.length - 1];
+        endMarker = L.circleMarker([last.lat, last.lng], {
+          radius: 7,
+          color: "#dc2626",
+          fillColor: "#ef4444",
+          fillOpacity: 1,
+          weight: 2
+        })
+          .addTo(map)
+          .bindPopup("終了地点");
+      }
+
+      document.getElementById("distanceText").textContent =
+        `距離: ${formatDistance(getTotalDistance(pts))}`;
+      document.getElementById("pointsText").textContent =
+        `ポイント: ${pts.length} 点`;
+    }
+
+    function fitDisplayedRoute() {
+      const latLngs = routeLine.getLatLngs();
+      if (latLngs && latLngs.length > 0) {
+        map.fitBounds(L.latLngBounds(latLngs), { padding: [30, 30] });
+      }
+    }
+
+    function renderHistoryList() {
+      const listEl = document.getElementById("logList");
+      const countEl = document.getElementById("logCountText");
+      countEl.textContent = `${logs.length}件`;
+
+      if (logs.length === 0) {
+        listEl.innerHTML = `<div class="log-sub">まだ保存されたログはありません。「記録開始」から試してみてください。</div>`;
+        return;
+      }
+
+      listEl.innerHTML = "";
+      logs.forEach((log, index) => {
+        const item = document.createElement("div");
+        item.className = "log-item" + (!isTracking && log.id === selectedLogId ? " active" : "");
+        item.onclick = () => selectLog(log.id);
+
+        const distText = formatDistance(getTotalDistance(log.points));
+        const labelText = log.startedAt ? formatDateTime(log.startedAt) : `ログ #${logs.length - index}`;
+
+        const meta = document.createElement("div");
+        meta.className = "log-meta";
+        meta.innerHTML = `
+          <div class="log-title">${labelText} の移動ログ</div>
+          <div class="log-sub">距離: ${distText} ／ ポイント: ${log.points.length}点</div>
+        `;
+
+        const actions = document.createElement("div");
+        actions.className = "item-actions";
+
+        const csvBtn = document.createElement("button");
+        csvBtn.className = "csv-btn";
+        csvBtn.textContent = "CSV";
+        csvBtn.onclick = (e) => {
+          e.stopPropagation();
+          downloadLogCsv(log.id);
+        };
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "delete-btn";
+        delBtn.textContent = "削除";
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          deleteLog(log.id);
+        };
+
+        actions.appendChild(csvBtn);
+        actions.appendChild(delBtn);
+
+        item.appendChild(meta);
+        item.appendChild(actions);
+        listEl.appendChild(item);
+      });
+    }
+
+    function selectLog(logId, shouldFit = true) {
+      if (isTracking) {
+        document.getElementById("status").textContent =
+          "記録中は現在のルートを表示しています。履歴を見るには先に「記録停止」を押してください。";
+        return;
+      }
+      const target = logs.find((l) => l.id === logId);
+      if (!target) return;
+
+      selectedLogId = target.id;
+      renderRouteOnMap(target.points, true);
+      renderHistoryList();
+      if (shouldFit && target.points.length > 0) {
+        fitDisplayedRoute();
+      }
+      document.getElementById("status").textContent =
+        `${formatDateTime(target.startedAt)} のログを地図に表示中`;
+    }
+
+    function deleteLog(logId) {
+      if (!confirm("この移動ログを削除しますか？")) return;
+      logs = logs.filter((l) => l.id !== logId);
+      saveLogs();
+
+      if (selectedLogId === logId) {
+        selectedLogId = logs.length > 0 ? logs[0].id : null;
+        if (selectedLogId) {
+          selectLog(selectedLogId, true);
+        } else {
+          renderRouteOnMap([], false);
+        }
+      }
+      renderHistoryList();
+    }
+
+    function updateUserMarker(lat, lng, acc, centerMap) {
+      if (centerMap) {
+        map.setView([lat, lng], Math.max(map.getZoom(), 16));
+      }
+      if (userMarker) {
+        userMarker.setLatLng([lat, lng]);
+      } else {
+        userMarker = L.marker([lat, lng]).addTo(map).bindPopup("現在地");
+      }
+      if (accuracyCircle) {
+        accuracyCircle.setLatLng([lat, lng]).setRadius(acc);
+      } else {
+        accuracyCircle = L.circle([lat, lng], {
+          radius: acc,
+          color: "#007aff",
+          fillColor: "#007aff",
+          fillOpacity: 0.15,
+          weight: 1
+        }).addTo(map);
+      }
+    }
+
+    function toggleTracking() {
+      if (isTracking) {
+        stopTracking();
+      } else {
+        startTracking();
+      }
+    }
+
+    function startTracking() {
       const statusEl = document.getElementById("status");
+      const btn = document.getElementById("toggleBtn");
 
       if (!navigator.geolocation) {
         statusEl.textContent = "このブラウザは位置情報に対応していません。";
         return;
       }
 
-      statusEl.textContent = "現在地を取得中...";
+      isTracking = true;
+      currentPoints = [];
+      currentStartedAt = new Date().toISOString();
+      selectedLogId = null;
 
-      navigator.geolocation.getCurrentPosition(
+      btn.textContent = "記録停止";
+      btn.className = "stop";
+      renderRouteOnMap([], false);
+      renderHistoryList();
+      statusEl.textContent = "移動ログを記録中...";
+
+      watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
           const acc = Math.round(pos.coords.accuracy);
 
-          // 地図を現在地へ移動（ズーム16）
-          map.setView([lat, lng], 16);
+          const last = currentPoints[currentPoints.length - 1];
+          const movedMeters = last
+            ? calcDistanceMeters(last.lat, last.lng, lat, lng)
+            : Infinity;
 
-          // マーカーの更新
-          if (userMarker) {
-            userMarker.setLatLng([lat, lng]);
-          } else {
-            userMarker = L.marker([lat, lng])
-              .addTo(map)
-              .bindPopup("いまここ！")
-              .openPopup();
+          if (acc <= 100 && (currentPoints.length === 0 || movedMeters >= 3)) {
+            currentPoints.push({
+              lat,
+              lng,
+              time: new Date().toISOString()
+            });
+            renderRouteOnMap(currentPoints, false);
           }
 
-          // 誤差範囲の円を更新
-          if (accuracyCircle) {
-            accuracyCircle.setLatLng([lat, lng]).setRadius(acc);
-          } else {
-            accuracyCircle = L.circle([lat, lng], {
-              radius: acc,
-              color: "#007aff",
-              fillColor: "#007aff",
-              fillOpacity: 0.15,
-              weight: 1
-            }).addTo(map);
-          }
-
-          statusEl.textContent = `取得完了（誤差 約${acc}m）`;
+          updateUserMarker(lat, lng, acc, true);
+          statusEl.textContent = `記録中（誤差 約${acc}m）`;
         },
         (err) => {
-          if (err.code === 1) {
-            statusEl.textContent = "位置情報の利用が許可されていません。ブラウザの設定を確認してください。";
-          } else {
-            statusEl.textContent = "現在地を取得できませんでした。電波状況や位置情報設定を確認してください。";
-          }
+          statusEl.textContent = "位置情報の取得中にエラーが発生しました。";
+          stopTracking();
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
+          timeout: 15000,
+          maximumAge: 2000
         }
       );
     }
 
-    // ページを開いたときに自動で1回現在地を取得
-    locateMe();
+    function stopTracking() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      isTracking = false;
+      const btn = document.getElementById("toggleBtn");
+      btn.textContent = "記録開始";
+      btn.className = "start";
+
+      if (currentPoints.length > 0) {
+        const newLog = {
+          id: String(Date.now()),
+          startedAt: currentStartedAt,
+          endedAt: new Date().toISOString(),
+          points: currentPoints
+        };
+        logs.unshift(newLog);
+        saveLogs();
+        selectedLogId = newLog.id;
+        renderHistoryList();
+        renderRouteOnMap(newLog.points, true);
+        fitDisplayedRoute();
+        document.getElementById("status").textContent =
+          "記録を保存し、地図上にルートを表示しました！";
+      } else {
+        renderHistoryList();
+        document.getElementById("status").textContent =
+          "位置ポイントがなかったため保存はスキップしました。";
+      }
+    }
+
+    loadLogs();
+    renderHistoryList();
+
+    if (logs.length > 0) {
+      selectLog(logs[0].id, true);
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const acc = Math.round(pos.coords.accuracy);
+          map.setView([lat, lng], 16);
+          updateUserMarker(lat, lng, acc, false);
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
   </script>
 </body>
 </html>
